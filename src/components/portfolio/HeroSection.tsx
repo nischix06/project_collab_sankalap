@@ -1,0 +1,88 @@
+'use client';
+
+import React from 'react';
+import { motion } from 'framer-motion';
+import { MousePointer2, Sparkles } from 'lucide-react';
+
+export const HeroSection = () => {
+  return (
+    <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden bg-white dark:bg-slate-950 px-6">
+      {/* Background Micro-animations */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(20)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute rounded-full bg-indigo-500/10 dark:bg-indigo-400/5 blur-xl"
+            style={{
+              width: Math.random() * 400 + 100,
+              height: Math.random() * 400 + 100,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              x: [0, Math.random() * 100 - 50],
+              y: [0, Math.random() * 100 - 50],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: Math.random() * 10 + 10,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+          />
+        ))}
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="relative z-10 text-center max-w-4xl"
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-sm font-medium mb-8 border border-indigo-100 dark:border-indigo-800"
+        >
+          <Sparkles size={16} />
+          <span>Innovating the Future</span>
+        </motion.div>
+
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-slate-900 dark:text-white mb-6 leading-[1.1]">
+          Where <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Ideology</span> Meets <br />
+          Next-Gen <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500">Execution</span>
+        </h1>
+
+        <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+          We are a clandestine collective of creators, engineers, and visionaries building the infrastructure of tomorrow. Our work is our signature.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-semibold text-lg flex items-center gap-2 shadow-xl shadow-indigo-500/20"
+          >
+            Explore Projects
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-8 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl font-semibold text-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          >
+            Join Collective
+          </motion.button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        animate={{ y: [0, 10, 0] }}
+        transition={{ duration: 2, repeat: Infinity }}
+        className="absolute bottom-10"
+      >
+        <MousePointer2 className="text-slate-400 dark:text-slate-600" size={24} />
+      </motion.div>
+    </section>
+  );
+};
