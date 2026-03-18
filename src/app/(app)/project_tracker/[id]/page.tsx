@@ -238,7 +238,21 @@ export default function ProjectTrackerPage() {
                       { _id: "1", userId: { name: "Sarah C." }, type: "code", description: "Refactored Node Telemetry backend with advanced MongoDB aggregations for real-time tracking.", status: "pending" },
                       { _id: "2", userId: { name: "Marcus V." }, type: "security", description: "Internal governance audit of the Collective Layer completed. 3 minor signals detected and patched.", status: "pending" },
                    ]}
-                   onVerify={(id, status) => console.log(id, status)}
+                   onVerify={async (id, status) => {
+                      try {
+                        const res = await fetch("/api/contributions", {
+                           method: "PATCH",
+                           headers: { "Content-Type": "application/json" },
+                           body: JSON.stringify({ id, status })
+                        });
+                        if (res.ok) {
+                           // Refresh project data to see progress updates
+                           window.location.reload();
+                        }
+                      } catch (err) {
+                        console.error("Verification failed", err);
+                      }
+                   }}
                 />
               )}
             </motion.div>

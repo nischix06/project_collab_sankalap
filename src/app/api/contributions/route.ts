@@ -47,17 +47,13 @@ export async function POST(req: Request) {
   }
 }
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> } // This is contribution ID
-) {
+export async function PATCH(req: Request) {
     // This is the VERIFICATION API
     try {
         const session = await getServerSession(authOptions);
         if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-        const { id } = await params;
-        const { status } = await req.json(); // approved | rejected
+        const { id, status } = await req.json(); // id: contribution ID, status: approved | rejected
         const verifierId = (session.user as any).id;
 
         await dbConnect();
