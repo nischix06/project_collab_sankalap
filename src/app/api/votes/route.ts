@@ -17,8 +17,20 @@ export async function POST(req: Request) {
     await dbConnect();
 
     // 1. Validate Proposal
-    const proposal = await Proposal.findById(proposalId);
+    const proposal = await Proposal.findById(proposalId).populate("orgId");
     if (!proposal) return NextResponse.json({ message: "Proposal not found" }, { status: 404 });
+
+    // Governance Logic: Check for Organization Rules
+    let maxAllowed = proposal.maxVotesPerUser || 1;
+    let editable = proposal.allowVoteEdit || false;
+
+    if (proposal.orgId) {
+        const orgRules = (proposal.orgId as any).rules;
+        if (orgRules) {
+            maxAllowed = orgRules.maxVotesPerUser;
+            editable = orgRules.allowVoteEdit;
+        }
+    }
 
     // 2. Validate Time Window
     const now = new Date();
@@ -27,17 +39,14 @@ export async function POST(req: Request) {
 
     // 3. Validate Vote Limit
     const existingVote = await Vote.findOne({ userId, proposalId });
-    const currentVoteValue = existingVote ? existingVote.value : 0;
     
-    // Check if new vote would exceed limit
-    // In 'fixed' mode, value is usually 1. In 'flexible', it could be more.
-    if (value > proposal.maxVotesPerUser) {
-        return NextResponse.json({ message: `Max votes per user is ${proposal.maxVotesPerUser}` }, { status: 400 });
+    if (value > maxAllowed) {
+        return NextResponse.json({ message: `Max votes per user is ${maxAllowed}` }, { status: 400 });
     }
 
     // 4. Update or Create Vote
     if (existingVote) {
-        if (!proposal.allowVoteEdit && existingVote.value !== value) {
+        if (!editable && existingVote.value !== value) {
             return NextResponse.json({ message: "Vote editing is disabled for this protocol" }, { status: 400 });
         }
         existingVote.value = value;

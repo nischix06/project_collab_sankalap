@@ -11,6 +11,11 @@ const ProposalSchema = new Schema(
       type: String,
       required: [true, "Description is required"],
     },
+    orgId: {
+      type: Schema.Types.ObjectId,
+      ref: "Org",
+      required: false, // Optional for global proposals, required for org-scoped ones
+    },
     type: {
       type: String,
       enum: ["idea", "research", "implementation", "collaboration", "protocol", "node", "infrastructure"],
@@ -18,7 +23,7 @@ const ProposalSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["proposal", "active", "closed", "draft", "disabled"],
+      enum: ["proposal", "active", "closed", "draft", "disabled", "approved", "rejected"],
       default: "proposal",
     },
     stage: {
