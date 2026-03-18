@@ -5,8 +5,17 @@ const GitRepoSchema = new Schema(
     projectId: {
       type: Schema.Types.ObjectId,
       ref: "Project",
-      unique: true,
-      required: true,
+      required: false,
+    },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+    },
+    type: {
+      type: String,
+      enum: ["PROJECT", "PERSONAL"],
+      default: "PROJECT",
     },
     repoUrl: {
       type: String,
