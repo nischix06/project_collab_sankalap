@@ -36,13 +36,40 @@ export default function ProposalCard({ proposal }: ProposalCardProps) {
   const [voteCount, setVoteCount] = useState(proposal.votes);
   const [voted, setVoted] = useState<"up" | "down" | null>(null);
 
-  const handleVote = (type: "up" | "down") => {
-    if (voted === type) {
-      setVoted(null);
-      setVoteCount(prev => (type === "up" ? prev - 1 : prev + 1));
-    } else {
-      setVoteCount(prev => (voted === (type === "up" ? "down" : "up") ? (type === "up" ? prev + 2 : prev - 2) : (type === "up" ? prev + 1 : prev - 1)));
-      setVoted(type);
+  const handleVote = async (type: "up" | "down") => {
+    try {
+      // Optimistic update
+      const oldVoted = voted;
+      const oldVoteCount = voteCount;
+
+      let newVoteCount = voteCount;
+      let newVoted: "up" | "down" | null = type;
+
+      if (voted === type) {
+        newVoted = null;
+        newVoteCount = type === "up" ? voteCount - 1 : voteCount + 1;
+      } else {
+        newVoteCount = voted === (type === "up" ? "down" : "up") 
+          ? (type === "up" ? voteCount + 2 : voteCount - 2) 
+          : (type === "up" ? voteCount + 1 : voteCount - 1);
+      }
+
+      setVoted(newVoted);
+      setVoteCount(newVoteCount);
+
+      const res = await fetch("/api/proposals/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposalId: proposal._id, voteType: type }),
+      });
+
+      if (!res.ok) {
+        // Rollback on error
+        setVoted(oldVoted);
+        setVoteCount(oldVoteCount);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
