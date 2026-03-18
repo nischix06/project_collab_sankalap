@@ -6,13 +6,9 @@ export default withAuth(
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
 
-    // Redirect to respective dashboards if trying to access the generic /dashboard
-    if (path === "/dashboard") {
-      if (token?.role === "pixel_member") {
-        return NextResponse.redirect(new URL("/dashboard/member", req.url));
-      } else {
-        return NextResponse.redirect(new URL("/dashboard/user", req.url));
-      }
+    // Redirect to respective feed if trying to access the generic /dashboard
+    if (path === "/dashboard" || path === "/feed") {
+      return NextResponse.redirect(new URL("/proposals", req.url));
     }
 
     // Role-based protection for specific dashboard sub-routes
