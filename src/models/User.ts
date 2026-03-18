@@ -30,10 +30,35 @@ const UserSchema = new Schema(
       required: [true, "Password is required"],
       select: false, // Don't return password by default
     },
-    role: {
+    avatar: {
       type: String,
-      enum: ["pixel_member", "normal_user"],
-      default: "normal_user",
+      default: "",
+    },
+    universityLogo: {
+      type: String,
+      default: "",
+    },
+    bio: {
+      type: String,
+      default: "",
+    },
+    skills: {
+      type: [String],
+      default: [],
+    },
+    location: {
+      type: String,
+      default: "",
+    },
+    roles: {
+      type: [String],
+      enum: ["user", "pixel_head", "project_lead", "pixel_member", "normal_user"],
+      default: ["user"],
+    },
+    role: { // Keeping single role for backward compatibility if needed, but the spec says "assigned role: user, pixel_head, project_lead"
+      type: String,
+      enum: ["user", "pixel_head", "project_lead", "pixel_member", "normal_user"],
+      default: "user",
     },
   },
   {
