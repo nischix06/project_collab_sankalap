@@ -1,5 +1,6 @@
 import dbConnect from "@/lib/mongodb";
 import Activity from "@/models/Activity";
+import User from "@/models/User"; // Explicitly import for populate
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Bell, UserPlus, ArrowBigUp, Projector, MessageCircle, Zap } from "lucide-react";

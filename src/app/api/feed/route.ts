@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Proposal from "@/models/Proposal";
 import Activity from "@/models/Activity";
+import User from "@/models/User"; // Explicitly import for populate
 
 export async function GET(req: Request) {
   try {
