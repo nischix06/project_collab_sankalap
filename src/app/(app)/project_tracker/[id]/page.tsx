@@ -94,9 +94,20 @@ export default function ProjectTrackerPage() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-8"
             >
+import { KanbanBoard, WorkflowStages, AutomationRules, TaskHistory } from "@/components/tracker/advanced/KanbanBoard";
+import { SkillMatrix, BandwidthTracker, TeamHeatmap, ReputationAllocation } from "@/components/tracker/advanced/ResourceManagement";
+import { DeploymentPulse, BuildLogViewer, GitHubSyncCard, ActivityPulse } from "@/components/tracker/advanced/TelemetryComponents";
+import { BurnDownChart, VelocityTracker, ComplexityIndicator } from "@/components/tracker/advanced/AnalyticsComponents";
+import { SocialStats, TaskComments, NodeContextCard } from "@/components/tracker/advanced/SocialComponents";
+
+// ... (In the component)
+
               {activeTab === "overview" && (
                 <div className="space-y-8">
-                   <ProjectProgressBar progress={project.progress} />
+                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <ProjectProgressBar progress={project.progress} />
+                      <SocialStats />
+                   </div>
                    <ProjectMetaInfo project={project} />
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
                       <ProjectTimeline activities={[
@@ -104,56 +115,118 @@ export default function ProjectTrackerPage() {
                         { title: "Protocol Voted", time: "02:15 PM", description: "Governance threshold reached with 42 upvotes." },
                         { title: "Design Sprint", time: "05:30 PM", description: "High-fidelity mockups verified by collective." },
                       ]} />
-                       <div className="bg-[#121214] border border-[#1f1f23] rounded-3xl p-8 space-y-4">
-                          <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-[#1f1f23] font-mono">System Summary</h4>
-                          <p className="text-[14px] text-[#9ca3af] leading-relaxed">
-                             This project is currently in the <strong>TACTICAL SPRINT</strong> phase. All active nodes are reporting synchronized states.
-                             Contribution velocity has increased by <strong>12%</strong> since the last epoch signal.
-                          </p>
-                          <div className="pt-4 flex flex-wrap gap-2">
-                             {["NEXT.JS", "MONGODB", "FRAMER", "OBSIDIAN"].map(tag => (
-                               <span key={tag} className="px-3 py-1.5 rounded-lg bg-[#17171a] border border-[#1f1f23] text-[10px] font-mono font-bold text-[#e5e7eb] uppercase tracking-widest">
-                                 {tag}
-                               </span>
-                             ))}
+                       <div className="space-y-8">
+                          <ComplexityIndicator score={84} />
+                          <div className="bg-[#121214] border border-[#1f1f23] rounded-3xl p-8 space-y-4">
+                            <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-[#1f1f23] font-mono">System Summary</h4>
+                            <p className="text-[14px] text-[#9ca3af] leading-relaxed italic">
+                               This project is currently in the <strong>TACTICAL SPRINT</strong> phase. All active nodes (12/12) are reporting synchronized states across the collective layer.
+                            </p>
+                            <div className="pt-4 flex flex-wrap gap-2">
+                               {["NEXT.JS", "MONGODB", "FRAMER", "OBSIDIAN", "TAILWIND"].map(tag => (
+                                 <span key={tag} className="px-3 py-1.5 rounded-lg bg-[#17171a] border border-[#1f1f23] text-[10px] font-mono font-bold text-[#e5e7eb] uppercase tracking-widest">
+                                   {tag}
+                                 </span>
+                               ))}
+                            </div>
                           </div>
                        </div>
+                   </div>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="md:col-span-2"><BurnDownChart /></div>
+                      <VelocityTracker />
                    </div>
                 </div>
               )}
 
               {activeTab === "tasks" && (
-                <TaskList 
-                  tasks={[
-                    { title: "Finalize Obsidian Surface Engine", assignee: "Tushar G.", dueDate: "Mar 24", priority: "high" },
-                    { title: "Implement Node Telemetry", assignee: "Sarah C.", dueDate: "Mar 26", priority: "normal" },
-                    { title: "Collective Governance Audit", assignee: "Marcus V.", dueDate: "Mar 28", priority: "normal" },
-                    { title: "Vector Asset Optimization", assignee: "Tushar G.", dueDate: "Mar 30", completed: true },
-                  ]} 
-                  onAddTask={() => {}} 
-                />
+                <div className="space-y-12">
+                   <WorkflowStages stages={[
+                     { label: "Design", status: "completed" },
+                     { label: "Protocol", status: "completed" },
+                     { label: "Alpha", status: "active" },
+                     { label: "Beta", status: "pending" },
+                     { label: "Stable", status: "pending" },
+                   ]} />
+                   
+                   <div className="pt-4 border-t border-[#1f1f23]">
+                      <h3 className="text-2xl font-black text-[#e5e7eb] italic uppercase tracking-tighter mb-8">Tactical Ops Node</h3>
+                      <KanbanBoard columns={[
+                        { id: 1, title: "Backlog", tasks: [
+                          { id: 1, title: "Refactor Telemetry", tags: ["CODE", "API"], xp: 20, priority: "CRITICAL" },
+                          { id: 2, title: "Vector Asset Polish", tags: ["DESIGN"], xp: 15 },
+                        ] },
+                        { id: 2, title: "Active Signal", tasks: [
+                          { id: 3, title: "Initial Obsidian Core", tags: ["KERNEL"], xp: 50, priority: "HIGH" },
+                        ] },
+                        { id: 3, title: "Verified", tasks: [
+                          { id: 4, title: "Database Architecture", tags: ["DB"], xp: 30 },
+                        ] },
+                      ]} />
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <AutomationRules rules={[
+                        { trigger: "Task Approved", event: "Status -> Verified", action: "Reputation +10" },
+                        { trigger: "PR Merged", event: "Main Branch Node", action: "Update Progress" },
+                      ]} />
+                      <TaskHistory logs={[
+                        { user: "Tushar G.", action: "broadcasted 'Initial Obsidian Core' to Active Signal", time: "1h ago" },
+                        { user: "Sarah C.", action: "initialized task 'Refactor Telemetry'", time: "4h ago" },
+                      ]} />
+                   </div>
+                </div>
               )}
 
               {activeTab === "contributors" && (
-                <ContributorList 
-                  members={[
-                    { name: "Tushar G.", role: "Lead Architect", reputation: 450, rank: 1, contributions: 24 },
-                    { name: "Sarah C.", role: "Senior Developer", reputation: 320, rank: 5, contributions: 18 },
-                    { name: "Marcus V.", role: "Security Auditor", reputation: 280, rank: 8, contributions: 12 },
-                    { name: "Elena Q.", role: "UI Designer", reputation: 190, rank: 15, contributions: 9 },
-                  ]} 
-                />
+                <div className="space-y-8">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <SkillMatrix skills={[
+                        { name: "React / Next", value: 98 },
+                        { name: "Node Telemetry", value: 74 },
+                        { name: "Design Matrix", value: 82 },
+                        { name: "Security Protocols", value: 65 },
+                        { name: "Kernel Logic", value: 91 },
+                      ]} />
+                      <div className="space-y-8">
+                         <NodeContextCard user={project.lead} />
+                         <ReputationAllocation />
+                      </div>
+                   </div>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="md:col-span-2"><BandwidthTracker team={[
+                        { name: "Tushar G.", load: 85 },
+                        { name: "Sarah C.", load: 45 },
+                        { name: "Marcus V.", load: 30 },
+                      ]} /></div>
+                      <TeamHeatmap />
+                   </div>
+                   <h3 className="text-2xl font-black text-[#e5e7eb] italic uppercase tracking-tighter pt-8 border-t border-[#1f1f23]">Active Collective</h3>
+                   <ContributorList 
+                     members={[
+                       { name: "Tushar G.", role: "Lead Architect", reputation: 450, rank: 1, contributions: 24 },
+                       { name: "Sarah C.", role: "Senior Developer", reputation: 320, rank: 5, contributions: 18 },
+                       { name: "Marcus V.", role: "Security Auditor", reputation: 280, rank: 8, contributions: 12 },
+                     ]} 
+                   />
+                </div>
               )}
 
               {activeTab === "activity" && (
-                <div className="space-y-6">
-                   <ContributionLog />
+                <div className="space-y-12">
+                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      <div className="lg:col-span-2 space-y-8">
+                         <DeploymentPulse project={project} />
+                         <BuildLogViewer />
+                      </div>
+                      <div className="space-y-8">
+                         <GitHubSyncCard repo={{ repoName: "artsy-v2-core", owner: "pixel-collective", syncStatus: "syncing", defaultBranch: "main" }} />
+                         <ActivityPulse />
+                      </div>
+                   </div>
+                   
                    <div className="pt-8 border-t border-[#1f1f23]">
-                      <ProjectTimeline activities={[
-                        { title: "Commit: Node Alpha Updated", time: "1 hour ago", description: "Refactored the telemetry layer for reduced packet loss." },
-                        { title: "Design Node Verification", time: "4 hours ago", description: "Design assets approved by Authority Head." },
-                        { title: "Operational Log: Task Initialized", time: "Yesterday", description: "New task: Collective Governance Audit created by Marcus V." },
-                      ]} />
+                      <TaskComments />
                    </div>
                 </div>
               )}
