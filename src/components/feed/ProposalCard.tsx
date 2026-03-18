@@ -1,4 +1,9 @@
+"use client";
+
 import { motion } from "framer-motion";
+import { ThumbsUp, ThumbsDown, MessageSquare, Share2, MoreHorizontal, Rocket, Code, Layers, FileText, UserPlus, Heart, ExternalLink, Plus } from "lucide-react";
+import { useState } from "react";
+import { useSession } from "next-auth/react";
 
 interface ProposalCardProps {
   proposal: {

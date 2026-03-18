@@ -40,8 +40,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isAdmin = role === "pixel_head";
 
   const navItems = [
-    { name: "Proposals Feed", href: "/proposals", icon: Layers },
-    { name: "My Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Feed", href: "/proposals", icon: Layers }, // Renamed from Proposals Feed
+    { name: "My Ideas", href: "/dashboard", icon: LayoutDashboard }, // Renamed from My Dashboard
     { name: "My Profile", href: `/user/${(session?.user as any)?.id}`, icon: User },
     { name: "Settings", href: "/settings", icon: Settings },
   ];

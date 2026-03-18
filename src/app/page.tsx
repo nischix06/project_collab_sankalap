@@ -1,27 +1,19 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { redirect } from "next/navigation";
 import { HeroSection } from "@/components/portfolio/HeroSection";
-import Link from "next/link";
-import { ImpactCounters } from "@/components/portfolio/ImpactCounters";
-import { ValuesGrid } from "@/components/portfolio/ValuesGrid";
-import { CommunityPulse } from "@/components/portfolio/CommunityPulse";
-import { ProjectShowcase } from "@/components/portfolio/ProjectShowcase";
-import { VisionParallax } from "@/components/portfolio/VisionParallax";
-import { MemberSpotlight } from "@/components/portfolio/MemberSpotlight";
-import { PhilosophyTimeline } from "@/components/portfolio/PhilosophyTimeline";
-import { InnovationBadge } from "@/components/portfolio/InnovationBadge";
-import { OpenSourceManifesto } from "@/components/portfolio/OpenSourceManifesto";
-import { SkillMosaic } from "@/components/portfolio/SkillMosaic";
-import { GlobalReachMap } from "@/components/portfolio/GlobalReachMap";
-import { CultureGallery } from "@/components/portfolio/CultureGallery";
-import { TestimonialCarousel } from "@/components/portfolio/TestimonialCarousel";
-import { FutureRoadmap } from "@/components/portfolio/FutureRoadmap";
-import { EngagementCTA } from "@/components/portfolio/EngagementCTA";
-import { IdeologyFooter } from "@/components/portfolio/IdeologyFooter";
-import { IdeologyCloud } from "@/components/portfolio/IdeologyCloud";
-import { DiversitySection } from "@/components/portfolio/DiversitySection";
+// ... other imports ...
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions);
+  
+  if (session) {
+    redirect("/proposals");
+  }
+
   return (
     <main className="min-h-screen bg-white dark:bg-slate-950">
+      {/* Existing portfolio landing page content */}
       <nav className="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="font-bold text-xl text-blue-600">Pixel Platform</div>
