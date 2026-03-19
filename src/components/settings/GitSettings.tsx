@@ -46,9 +46,12 @@ export default function GitSettings({ userId }: { userId: string }) {
       if (res.ok) {
         setNewRepoUrl("");
         await fetchRepos();
+      } else {
+        const errData = await res.json();
+        alert("Operation Failed: " + (errData.message || "Unknown error"));
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert("System Pulse Failure: " + err.message);
     } finally {
       setLoading(false);
     }

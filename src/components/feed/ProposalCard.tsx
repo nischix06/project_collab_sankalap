@@ -51,7 +51,7 @@ export default function ProposalCard({ proposal }: ProposalCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
 
-  const isAuthor = (session?.user as any)?.id === proposal.createdBy._id;
+  const isAuthor = (session?.user as any)?.id === proposal.createdBy?._id;
 
   const handleVoteChange = (newTotal: number, newUserVotes: number) => {
     setCurrentTotalVotes(newTotal);
@@ -76,18 +76,18 @@ export default function ProposalCard({ proposal }: ProposalCardProps) {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-xl bg-[#121214] border border-[#1f1f23] flex items-center justify-center text-[11px] font-black text-[#e5e7eb] uppercase overflow-hidden">
-                        {proposal.createdBy.avatar ? (
+                        {proposal.createdBy?.avatar ? (
                             <img src={proposal.createdBy.avatar} alt="" className="w-full h-full object-cover" />
                         ) : (
-                            proposal.createdBy.name[0]
+                            proposal.createdBy?.name?.[0] || "U"
                         )}
                     </div>
                     <div>
-                        <Link href={`/profile/${proposal.createdBy._id}`} className="text-[14px] font-bold text-[#e5e7eb] hover:underline underline-offset-4 decoration-1">
-                            {proposal.createdBy.name}
+                        <Link href={`/profile/${proposal.createdBy?._id || '#'}`} className="text-[14px] font-bold text-[#e5e7eb] hover:underline underline-offset-4 decoration-1">
+                            {proposal.createdBy?.name || "Unknown Agent"}
                         </Link>
                         <p className="text-[10px] text-[#9ca3af] font-mono uppercase tracking-[0.05em] leading-none mt-1">
-                            {proposal.createdBy.role?.replace('_', ' ') || "unverified"} • {new Date(proposal.createdAt || '').toLocaleDateString()}
+                            {proposal.createdBy?.role?.replace('_', ' ') || "unverified"} • {new Date(proposal.createdAt || '').toLocaleDateString()}
                         </p>
                     </div>
                 </div>

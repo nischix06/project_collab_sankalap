@@ -1,9 +1,11 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import Proposal from "@/models/Proposal";
 import Vote from "@/models/Vote";
+import User from "@/models/User";
 import Activity from "@/models/Activity";
 
 export async function POST(req: Request) {
@@ -55,12 +57,11 @@ export async function POST(req: Request) {
         await Vote.create({ userId, proposalId, value });
     }
 
-    // 5. Recalculate Proposal Total Votes (Atomic update is better, but let's sync)
-    // We fetch all votes for this proposal to be accurate, or use $inc
+    // 5. Atomic Recalculate Proposal Total Votes
     const allVotes = await Vote.find({ proposalId });
     const totalVotes = allVotes.reduce((acc, v) => acc + v.value, 0);
-    proposal.totalVotes = totalVotes;
-    await proposal.save();
+    
+    await Proposal.findByIdAndUpdate(proposalId, { $set: { totalVotes } });
 
     // 6. Record Activity
     await Activity.create({
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
         metadata: { value, title: proposal.title }
     });
 
-    // 7. Reward Reputation to Creator
+    // 7. Atomic Reward Reputation to Creator
     if (value > 0) {
         await User.findByIdAndUpdate(proposal.createdBy, { $inc: { reputation: value } });
     }

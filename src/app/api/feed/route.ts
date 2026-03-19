@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Proposal from "@/models/Proposal";
@@ -26,11 +27,14 @@ export async function GET(req: Request) {
       .limit(15)
       .lean({ strictPopulate: false });
 
+    // Filter out orphaned data (where populate fails)
+    const validProposals = proposals.filter((p: any) => p.createdBy);
+    const validActivity = activity.filter((a: any) => a.actorId);
+
     // 3. Return structured feed
-    // In the future, we can interleave these
     return NextResponse.json({
-      proposals: JSON.parse(JSON.stringify(proposals)),
-      activity: JSON.parse(JSON.stringify(activity))
+      proposals: JSON.parse(JSON.stringify(validProposals)),
+      activity: JSON.parse(JSON.stringify(validActivity))
     });
 
   } catch (error) {

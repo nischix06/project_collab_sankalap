@@ -17,16 +17,26 @@ export default function SettingsPage() {
     role: "user",
   });
 
-  useEffect(() => {
-    if (session?.user) {
-      const u = session.user as any;
-      setFormData({
-        bio: u.bio || "",
-        location: u.location || "",
-        skills: u.skills?.join(", ") || "",
-        role: u.role || "user",
-      });
+  const fetchProfile = async () => {
+    if (!session?.user) return;
+    try {
+      const res = await fetch("/api/user/profile");
+      if (res.ok) {
+        const data = await res.json();
+        setFormData({
+          bio: data.bio || "",
+          location: data.location || "",
+          skills: data.skills?.join(", ") || "",
+          role: data.role || "user",
+        });
+      }
+    } catch (err) {
+      console.error("Profile fetch failed", err);
     }
+  };
+
+  useEffect(() => {
+    fetchProfile();
   }, [session]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,7 +56,9 @@ export default function SettingsPage() {
 
       if (res.ok) {
         setSuccess(true);
+        setTimeout(() => setSuccess(true), 100); // Trigger re-render pulse
         setTimeout(() => setSuccess(false), 3000);
+        await fetchProfile();
         await update(); 
       }
     } catch (err) {

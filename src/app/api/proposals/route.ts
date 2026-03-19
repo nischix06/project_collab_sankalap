@@ -18,7 +18,10 @@ export async function GET(req: Request) {
       .populate("createdBy", "name avatar role universityName")
       .sort({ createdAt: -1 });
 
-    return NextResponse.json(proposals);
+    // Filter out orphaned data
+    const validProposals = proposals.filter((p: any) => p.createdBy);
+
+    return NextResponse.json(validProposals);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
