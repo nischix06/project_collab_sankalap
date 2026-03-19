@@ -145,7 +145,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="md:col-span-3">
-             <GitSettings userId={(session?.user as any).id} />
+             {session?.user && <GitSettings userId={(session.user as any).id} />}
           </div>
         </div>
 
