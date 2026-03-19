@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     });
 
     // 7. Atomic Reward Reputation to Creator
-    if (value > 0) {
+    if (value > 0 && proposal?.createdBy) {
         await User.findByIdAndUpdate(proposal.createdBy, { $inc: { reputation: value } });
     }
 
