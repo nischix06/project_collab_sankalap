@@ -4,293 +4,539 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
 type CommentItem = {
-  _id: string;
-  proposalId: string;
-  authorId: string;
-  authorName: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
+    _id: string;
+    proposalId: string;
+    parentCommentId: string | null;
+    authorId: string;
+    authorName: string;
+    content: string;
+    voteCount: number;
+    replyCount: number;
+    hasVotedByCurrentUser: boolean;
+    createdAt: string;
+    updatedAt: string;
+};
+
+type CommentNode = CommentItem & {
+    replies: CommentNode[];
 };
 
 type ProposalCommentsProps = {
-  proposalId: string;
+    proposalId: string;
+};
+
+type CommentsResponse = {
+    comments?: CommentItem[];
+    repliesByParent?: Record<string, CommentItem[]>;
 };
 
 type SessionLike = {
-  user?: {
-    id?: string;
-  };
+    user?: {
+        id?: string;
+    };
 };
 
 const MAX_COMMENT_LENGTH = 1000;
+const MAX_COMMENT_DEPTH = 3;
 
 function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "unknown-time";
-  return date.toLocaleString();
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return "unknown-time";
+    }
+
+    return date.toLocaleString();
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
+    return error instanceof Error ? error.message : fallback;
+}
+
+function buildCommentTree(comments: CommentItem[], repliesByParent: Record<string, CommentItem[]>): CommentNode[] {
+    return comments.map((comment) => ({
+        ...comment,
+        replies: buildCommentTree(repliesByParent[comment._id] || [], repliesByParent),
+    }));
+}
+
+function updateCommentCollection(
+    comments: CommentItem[],
+    repliesByParent: Record<string, CommentItem[]>,
+    commentId: string,
+    updater: (comment: CommentItem) => CommentItem
+): { comments: CommentItem[]; repliesByParent: Record<string, CommentItem[]> } {
+    const updateList = (items: CommentItem[]): CommentItem[] =>
+        items.map((item) => {
+            const updatedItem = item._id === commentId ? updater(item) : item;
+            const replies = repliesByParent[updatedItem._id] || [];
+
+            return {
+                ...updatedItem,
+                replyCount: replies.length,
+            };
+        });
+
+    const nextRepliesByParent = Object.fromEntries(
+        Object.entries(repliesByParent).map(([parentId, replies]) => [
+            parentId,
+            replies.map((item) => (item._id === commentId ? updater(item) : item)),
+        ])
+    );
+
+    return {
+        comments: updateList(comments),
+        repliesByParent: nextRepliesByParent,
+    };
 }
 
 export default function ProposalComments({ proposalId }: ProposalCommentsProps) {
-  const { data: session, status } = useSession();
-  const [comments, setComments] = useState<CommentItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
+    const { data: session, status } = useSession();
+    const [comments, setComments] = useState<CommentItem[]>([]);
+    const [repliesByParent, setRepliesByParent] = useState<Record<string, CommentItem[]>>({});
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-  const [draft, setDraft] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+    const [draft, setDraft] = useState("");
+    const [submitting, setSubmitting] = useState(false);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingDraft, setEditingDraft] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingDraft, setEditingDraft] = useState("");
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const currentUserId = useMemo(() => {
-    return String((session as SessionLike | null)?.user?.id || "");
-  }, [session]);
+    const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
+    const [replyDraft, setReplyDraft] = useState("");
+    const [replySubmitting, setReplySubmitting] = useState(false);
 
-  const fetchComments = useCallback(async () => {
-    setLoading(true);
-    setError("");
+    const [voteLoadingId, setVoteLoadingId] = useState<string | null>(null);
 
-    try {
-      const res = await fetch(`/api/comments?proposalId=${proposalId}`, { cache: "no-store" });
-      const data = await res.json();
+    const currentUserId = useMemo(() => {
+        return String((session?.user as SessionLike | undefined)?.id || "");
+    }, [session]);
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to fetch comments");
-      }
+    const commentTree = useMemo(() => buildCommentTree(comments, repliesByParent), [comments, repliesByParent]);
 
-      setComments(Array.isArray(data?.comments) ? data.comments : []);
-    } catch (error: unknown) {
-      setError(getErrorMessage(error, "Failed to fetch comments"));
-    } finally {
-      setLoading(false);
-    }
-  }, [proposalId]);
+    const fetchComments = useCallback(async () => {
+        setLoading(true);
+        setError("");
 
-  useEffect(() => {
-    void fetchComments();
-  }, [fetchComments]);
+        try {
+            const response = await fetch(`/api/comments?proposalId=${proposalId}`, { cache: "no-store" });
+            const data = (await response.json()) as CommentsResponse & { error?: string };
 
-  const handleCreate = async () => {
-    const content = draft.trim();
-    if (!content) return;
-    if (content.length > MAX_COMMENT_LENGTH) {
-      setError(`Comment cannot exceed ${MAX_COMMENT_LENGTH} characters`);
-      return;
-    }
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to fetch comments");
+            }
 
-    setSubmitting(true);
-    setError("");
+            setComments(Array.isArray(data.comments) ? data.comments : []);
+            setRepliesByParent(data.repliesByParent && typeof data.repliesByParent === "object" ? data.repliesByParent : {});
+        } catch (caughtError: unknown) {
+            setError(getErrorMessage(caughtError, "Failed to fetch comments"));
+        } finally {
+            setLoading(false);
+        }
+    }, [proposalId]);
 
-    try {
-      const res = await fetch("/api/comments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposalId, content }),
-      });
+    useEffect(() => {
+        void fetchComments();
+    }, [fetchComments]);
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to post comment");
-      }
+    const canInteract = status === "authenticated";
 
-      setDraft("");
-      await fetchComments();
-    } catch (error: unknown) {
-      setError(getErrorMessage(error, "Failed to post comment"));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    const handleCreate = async () => {
+        const content = draft.trim();
+        if (!content) return;
+        if (content.length > MAX_COMMENT_LENGTH) {
+            setError(`Comment cannot exceed ${MAX_COMMENT_LENGTH} characters`);
+            return;
+        }
 
-  const startEdit = (comment: CommentItem) => {
-    setEditingId(comment._id);
-    setEditingDraft(comment.content);
-  };
+        setSubmitting(true);
+        setError("");
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditingDraft("");
-  };
+        try {
+            const response = await fetch("/api/comments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ proposalId, content }),
+            });
 
-  const handleSaveEdit = async () => {
-    if (!editingId) return;
+            const data = (await response.json()) as { error?: string };
 
-    const content = editingDraft.trim();
-    if (!content) return;
-    if (content.length > MAX_COMMENT_LENGTH) {
-      setError(`Comment cannot exceed ${MAX_COMMENT_LENGTH} characters`);
-      return;
-    }
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to post comment");
+            }
 
-    setSavingEdit(true);
-    setError("");
+            setDraft("");
+            await fetchComments();
+        } catch (caughtError: unknown) {
+            setError(getErrorMessage(caughtError, "Failed to post comment"));
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
-    try {
-      const res = await fetch(`/api/comments/${editingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
+    const handleStartReply = (commentId: string) => {
+        setActiveReplyId((current) => (current === commentId ? null : commentId));
+        setReplyDraft("");
+        setError("");
+    };
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to update comment");
-      }
+    const handleCancelReply = () => {
+        setActiveReplyId(null);
+        setReplyDraft("");
+    };
 
-      setEditingId(null);
-      setEditingDraft("");
-      await fetchComments();
-    } catch (error: unknown) {
-      setError(getErrorMessage(error, "Failed to update comment"));
-    } finally {
-      setSavingEdit(false);
-    }
-  };
+    const handleSubmitReply = async () => {
+        if (!activeReplyId) return;
 
-  const handleDelete = async (commentId: string) => {
-    if (!confirm("Delete this comment?")) return;
+        const content = replyDraft.trim();
+        if (!content) return;
+        if (content.length > MAX_COMMENT_LENGTH) {
+            setError(`Comment cannot exceed ${MAX_COMMENT_LENGTH} characters`);
+            return;
+        }
 
-    setDeletingId(commentId);
-    setError("");
+        setReplySubmitting(true);
+        setError("");
 
-    try {
-      const res = await fetch(`/api/comments/${commentId}`, {
-        method: "DELETE",
-      });
+        try {
+            const response = await fetch("/api/comments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ proposalId, content, parentCommentId: activeReplyId }),
+            });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to delete comment");
-      }
+            const data = (await response.json()) as { error?: string };
 
-      await fetchComments();
-    } catch (error: unknown) {
-      setError(getErrorMessage(error, "Failed to delete comment"));
-    } finally {
-      setDeletingId(null);
-    }
-  };
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to post reply");
+            }
 
-  const canComment = status === "authenticated";
+            setActiveReplyId(null);
+            setReplyDraft("");
+            await fetchComments();
+        } catch (caughtError: unknown) {
+            setError(getErrorMessage(caughtError, "Failed to post reply"));
+        } finally {
+            setReplySubmitting(false);
+        }
+    };
 
-  return (
-    <section className="rounded-2xl border border-[#1f1f23] bg-[#121214] p-6 shadow-sm space-y-5">
-      <div className="space-y-1">
-        <h3 className="text-lg font-bold tracking-tight text-[#e5e7eb]">Comments</h3>
-        <p className="text-xs text-[#9ca3af]">Share your thoughts about this proposal.</p>
-      </div>
+    const handleStartEdit = (comment: CommentItem) => {
+        setEditingId(comment._id);
+        setEditingDraft(comment.content);
+        setActiveReplyId(null);
+        setReplyDraft("");
+        setError("");
+    };
 
-      <div className="space-y-2">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={canComment ? "Write a comment..." : "Sign in to write a comment"}
-          disabled={!canComment || submitting}
-          maxLength={MAX_COMMENT_LENGTH}
-          rows={4}
-          className="w-full resize-y rounded-xl border border-[#1f1f23] bg-[#0f0f11] px-3 py-2 text-sm text-[#e5e7eb] outline-none focus:border-[#6366f1]/50 disabled:opacity-60"
-        />
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] text-[#9ca3af]">{draft.trim().length}/{MAX_COMMENT_LENGTH}</p>
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={!canComment || submitting || !draft.trim()}
-            className="rounded-md border border-[#2a2a2f] bg-[#17171a] px-3 py-1.5 text-xs font-semibold text-[#e5e7eb] transition-colors hover:border-[#6366f1]/50 hover:text-[#6366f1] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? "Posting..." : "Post Comment"}
-          </button>
-        </div>
-      </div>
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setEditingDraft("");
+    };
 
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
+    const handleSaveEdit = async () => {
+        if (!editingId) return;
 
-      <div className="space-y-3 border-t border-[#1f1f23] pt-4">
-        {loading ? <p className="text-sm text-[#9ca3af]">Loading comments...</p> : null}
+        const content = editingDraft.trim();
+        if (!content) return;
+        if (content.length > MAX_COMMENT_LENGTH) {
+            setError(`Comment cannot exceed ${MAX_COMMENT_LENGTH} characters`);
+            return;
+        }
 
-        {!loading && comments.length === 0 ? (
-          <p className="text-sm text-[#9ca3af]">No comments yet. Be the first to comment.</p>
-        ) : null}
+        setSavingEdit(true);
+        setError("");
 
-        {!loading
-          ? comments.map((comment) => {
-              const isOwner = currentUserId && currentUserId === String(comment.authorId);
-              const isEditing = editingId === comment._id;
+        try {
+            const response = await fetch(`/api/comments/${editingId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ content }),
+            });
 
-              return (
-                <article key={comment._id} className="rounded-xl border border-[#1f1f23] bg-[#0f0f11] p-4 space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-[#e5e7eb]">{comment.authorName}</p>
-                      <p className="text-[11px] text-[#9ca3af]">{formatTimestamp(comment.createdAt)}</p>
-                    </div>
+            const data = (await response.json()) as { error?: string };
 
-                    {isOwner ? (
-                      <div className="flex items-center gap-2">
-                        {!isEditing ? (
-                          <button
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to update comment");
+            }
+
+            setEditingId(null);
+            setEditingDraft("");
+            await fetchComments();
+        } catch (caughtError: unknown) {
+            setError(getErrorMessage(caughtError, "Failed to update comment"));
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
+    const handleDelete = async (commentId: string) => {
+        if (!confirm("Delete this comment?")) return;
+
+        setDeletingId(commentId);
+        setError("");
+
+        try {
+            const response = await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
+            const data = (await response.json()) as { error?: string };
+
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to delete comment");
+            }
+
+            if (activeReplyId === commentId) {
+                setActiveReplyId(null);
+                setReplyDraft("");
+            }
+
+            if (editingId === commentId) {
+                setEditingId(null);
+                setEditingDraft("");
+            }
+
+            await fetchComments();
+        } catch (caughtError: unknown) {
+            setError(getErrorMessage(caughtError, "Failed to delete comment"));
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const handleToggleVote = async (commentId: string) => {
+        if (!canInteract) return;
+
+        setVoteLoadingId(commentId);
+        setError("");
+
+        try {
+            const response = await fetch("/api/comments/vote", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ commentId }),
+            });
+
+            const data = (await response.json()) as { error?: string };
+
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to update vote");
+            }
+
+            const nextVoteCount = typeof data?.voteCount === "number" ? data.voteCount : null;
+            const hasVoted = Boolean(data?.hasVoted);
+
+            if (nextVoteCount !== null) {
+                const applyVoteUpdate = (item: CommentItem): CommentItem =>
+                    item._id === commentId
+                        ? {
+                              ...item,
+                              voteCount: nextVoteCount,
+                              hasVotedByCurrentUser: hasVoted,
+                          }
+                        : item;
+
+                setComments((currentComments) => updateCommentCollection(currentComments, repliesByParent, commentId, applyVoteUpdate).comments);
+                setRepliesByParent((currentReplies) => updateCommentCollection(comments, currentReplies, commentId, applyVoteUpdate).repliesByParent);
+            }
+
+            void fetchComments();
+        } catch (caughtError: unknown) {
+            setError(getErrorMessage(caughtError, "Failed to update vote"));
+        } finally {
+            setVoteLoadingId(null);
+        }
+    };
+
+    const renderComment = (comment: CommentNode, depth = 1): JSX.Element => {
+        const isOwner = currentUserId && currentUserId === comment.authorId;
+        const isEditing = editingId === comment._id;
+        const isReplying = activeReplyId === comment._id;
+        const canReply = depth < MAX_COMMENT_DEPTH;
+
+        return (
+            <div key={comment._id} className={depth > 1 ? "ml-4 pl-4 border-l border-[#1f1f23]" : ""}>
+                <article className="rounded-xl border border-[#1f1f23] bg-[#0f0f11] p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-semibold text-[#e5e7eb]">{comment.authorName}</p>
+                                <span className="text-[10px] text-[#9ca3af]">{formatTimestamp(comment.createdAt)}</span>
+                                {comment.replyCount > 0 ? (
+                                    <span className="text-[10px] text-[#6366f1]">{comment.replyCount} repl{comment.replyCount === 1 ? "y" : "ies"}</span>
+                                ) : null}
+                            </div>
+                            <div className="mt-2">
+                                {!isEditing ? (
+                                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#d1d5db]">{comment.content}</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <textarea
+                                            value={editingDraft}
+                                            onChange={(event) => setEditingDraft(event.target.value)}
+                                            rows={3}
+                                            maxLength={MAX_COMMENT_LENGTH}
+                                            className="w-full resize-y rounded-lg border border-[#1f1f23] bg-[#121214] px-3 py-2 text-sm text-[#e5e7eb] outline-none focus:border-[#6366f1]/50"
+                                        />
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleCancelEdit}
+                                                disabled={savingEdit}
+                                                className="text-xs text-[#9ca3af] hover:text-[#e5e7eb] disabled:opacity-50"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleSaveEdit}
+                                                disabled={savingEdit || !editingDraft.trim()}
+                                                className="rounded-md border border-[#2a2a2f] bg-[#17171a] px-3 py-1 text-xs font-semibold text-[#e5e7eb] hover:border-[#6366f1]/50 hover:text-[#6366f1] disabled:opacity-50"
+                                            >
+                                                {savingEdit ? "Saving..." : "Save"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <button
                             type="button"
-                            onClick={() => startEdit(comment)}
-                            className="text-xs text-[#9ca3af] hover:text-[#e5e7eb]"
-                          >
-                            Edit
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(comment._id)}
-                          disabled={deletingId === comment._id}
-                          className="text-xs text-[#9ca3af] hover:text-red-400 disabled:opacity-50"
+                            onClick={() => handleToggleVote(comment._id)}
+                            disabled={!canInteract || voteLoadingId === comment._id}
+                            className={`flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                                comment.hasVotedByCurrentUser
+                                    ? "border-[#6366f1]/50 bg-[#6366f1]/10 text-[#e5e7eb]"
+                                    : "border-[#2a2a2f] text-[#9ca3af] hover:border-[#6366f1]/50 hover:text-[#e5e7eb]"
+                            } disabled:opacity-50`}
                         >
-                          {deletingId === comment._id ? "Deleting..." : "Delete"}
+                            <span>👍</span>
+                            <span>{comment.voteCount}</span>
                         </button>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {!isEditing ? (
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#d1d5db]">{comment.content}</p>
-                  ) : (
-                    <div className="space-y-2">
-                      <textarea
-                        value={editingDraft}
-                        onChange={(e) => setEditingDraft(e.target.value)}
-                        rows={3}
-                        maxLength={MAX_COMMENT_LENGTH}
-                        className="w-full resize-y rounded-lg border border-[#1f1f23] bg-[#121214] px-3 py-2 text-sm text-[#e5e7eb] outline-none focus:border-[#6366f1]/50"
-                      />
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          disabled={savingEdit}
-                          className="text-xs text-[#9ca3af] hover:text-[#e5e7eb] disabled:opacity-50"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSaveEdit}
-                          disabled={savingEdit || !editingDraft.trim()}
-                          className="rounded-md border border-[#2a2a2f] bg-[#17171a] px-3 py-1 text-xs font-semibold text-[#e5e7eb] hover:border-[#6366f1]/50 hover:text-[#6366f1] disabled:opacity-50"
-                        >
-                          {savingEdit ? "Saving..." : "Save"}
-                        </button>
-                      </div>
                     </div>
-                  )}
+
+                    <div className="flex flex-wrap items-center gap-3 text-xs">
+                        {canReply ? (
+                            <button
+                                type="button"
+                                onClick={() => handleStartReply(comment._id)}
+                                disabled={!canInteract}
+                                className="text-[#9ca3af] hover:text-[#e5e7eb] disabled:opacity-50"
+                            >
+                                Reply
+                            </button>
+                        ) : (
+                            <span className="text-[#6366f1]">Max depth reached</span>
+                        )}
+
+                        {isOwner ? (
+                            <>
+                                {!isEditing ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStartEdit(comment)}
+                                        className="text-[#9ca3af] hover:text-[#e5e7eb]"
+                                    >
+                                        Edit
+                                    </button>
+                                ) : null}
+                                <button
+                                    type="button"
+                                    onClick={() => handleDelete(comment._id)}
+                                    disabled={deletingId === comment._id}
+                                    className="text-[#9ca3af] hover:text-red-400 disabled:opacity-50"
+                                >
+                                    {deletingId === comment._id ? "Deleting..." : "Delete"}
+                                </button>
+                            </>
+                        ) : null}
+                    </div>
+
+                    {isReplying ? (
+                        <div className="space-y-2 rounded-lg border border-[#1f1f23] bg-[#121214] p-3">
+                            <textarea
+                                value={replyDraft}
+                                onChange={(event) => setReplyDraft(event.target.value)}
+                                rows={3}
+                                maxLength={MAX_COMMENT_LENGTH}
+                                placeholder="Write a reply..."
+                                className="w-full resize-y rounded-lg border border-[#1f1f23] bg-[#0f0f11] px-3 py-2 text-sm text-[#e5e7eb] outline-none focus:border-[#6366f1]/50"
+                            />
+                            <div className="flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleCancelReply}
+                                    disabled={replySubmitting}
+                                    className="text-xs text-[#9ca3af] hover:text-[#e5e7eb] disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSubmitReply}
+                                    disabled={replySubmitting || !replyDraft.trim()}
+                                    className="rounded-md border border-[#2a2a2f] bg-[#17171a] px-3 py-1 text-xs font-semibold text-[#e5e7eb] hover:border-[#6366f1]/50 hover:text-[#6366f1] disabled:opacity-50"
+                                >
+                                    {replySubmitting ? "Posting..." : "Post Reply"}
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
                 </article>
-              );
-            })
-          : null}
-      </div>
-    </section>
-  );
+
+                {comment.replies.length > 0 ? (
+                    <div className="mt-3 space-y-3">
+                        {comment.replies.map((reply) => renderComment(reply, depth + 1))}
+                    </div>
+                ) : null}
+            </div>
+        );
+    };
+
+    return (
+        <section className="rounded-2xl border border-[#1f1f23] bg-[#121214] p-6 shadow-sm space-y-5">
+            <div className="space-y-1">
+                <h3 className="text-lg font-bold tracking-tight text-[#e5e7eb]">Comments</h3>
+                <p className="text-xs text-[#9ca3af]">Share your thoughts about this proposal.</p>
+            </div>
+
+            <div className="space-y-2">
+                <textarea
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    placeholder={canInteract ? "Write a comment..." : "Sign in to write a comment"}
+                    disabled={!canInteract || submitting}
+                    maxLength={MAX_COMMENT_LENGTH}
+                    rows={4}
+                    className="w-full resize-y rounded-xl border border-[#1f1f23] bg-[#0f0f11] px-3 py-2 text-sm text-[#e5e7eb] outline-none focus:border-[#6366f1]/50 disabled:opacity-60"
+                />
+                <div className="flex items-center justify-between">
+                    <p className="text-[11px] text-[#9ca3af]">
+                        {draft.trim().length}/{MAX_COMMENT_LENGTH}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={handleCreate}
+                        disabled={!canInteract || submitting || !draft.trim()}
+                        className="rounded-md border border-[#2a2a2f] bg-[#17171a] px-3 py-1.5 text-xs font-semibold text-[#e5e7eb] transition-colors hover:border-[#6366f1]/50 hover:text-[#6366f1] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        {submitting ? "Posting..." : "Post Comment"}
+                    </button>
+                </div>
+            </div>
+
+            {error ? <p className="text-sm text-red-400">{error}</p> : null}
+
+            <div className="space-y-4 border-t border-[#1f1f23] pt-4">
+                {loading ? <p className="text-sm text-[#9ca3af]">Loading comments...</p> : null}
+
+                {!loading && commentTree.length === 0 ? (
+                    <p className="text-sm text-[#9ca3af]">No comments yet. Be the first to comment.</p>
+                ) : null}
+
+                {!loading ? commentTree.map((comment) => renderComment(comment)) : null}
+            </div>
+        </section>
+    );
 }
