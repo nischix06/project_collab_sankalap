@@ -2,6 +2,7 @@ import dbConnect from "@/lib/mongodb";
 import Proposal from "@/models/Proposal";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import ProposalComments from "@/components/proposal/ProposalComments";
 
 type Props = {
     params: Promise<{ id: string }>;
@@ -104,6 +105,8 @@ export default async function IdeaDetailPage({ params }: Props) {
                     )}
                 </section>
             </article>
+
+            <ProposalComments proposalId={(proposal as any)._id.toString()} />
         </div>
     );
 }
