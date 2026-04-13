@@ -3,6 +3,7 @@ import Proposal from "@/models/Proposal";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProposalComments from "@/components/proposal/ProposalComments";
+import ProposalDetailEditControls from "@/components/proposal/ProposalDetailEditControls";
 
 type Props = {
     params: Promise<{ id: string }>;
@@ -31,6 +32,15 @@ export default async function IdeaDetailPage({ params }: Props) {
     }
 
     const media = Array.isArray((proposal as any).media) ? ((proposal as any).media as string[]) : [];
+    const editableProposal = {
+        _id: String((proposal as any)._id || ""),
+        title: String((proposal as any).title || ""),
+        description: String((proposal as any).description || ""),
+        type: String((proposal as any).type || "idea"),
+        techStack: Array.isArray((proposal as any).techStack) ? ((proposal as any).techStack as string[]) : [],
+        media,
+        createdById: String((proposal as any).createdBy?._id || ""),
+    };
 
     return (
         <div className="max-w-3xl mx-auto space-y-6">

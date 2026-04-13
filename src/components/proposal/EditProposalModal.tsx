@@ -1,8 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Sparkles, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { X, Send, Loader2 } from "lucide-react";
+
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = new Set([
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/png",
+  "image/jpeg",
+]);
+
+function getFileLabel(url: string): string {
+  const raw = url.split("/").pop() || "attachment";
+  return decodeURIComponent(raw);
+}
+
+function getValidationMessage(file: File): string | null {
+  if (!ALLOWED_FILE_TYPES.has(file.type)) {
+    return "Invalid file type. Allowed: PDF, DOCX, PNG, JPG.";
+  }
+
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return "File is too large. Maximum size is 5 MB.";
+  }
+
+  return null;
+}
 
 export default function EditProposalModal({
   proposal,
@@ -19,29 +44,103 @@ export default function EditProposalModal({
     type: proposal.type,
     techStack: proposal.techStack?.join(", ") || "",
   });
+  const [existingMedia, setExistingMedia] = useState<string[]>(
+    Array.isArray(proposal.media) ? proposal.media.filter((item: unknown) => typeof item === "string") : []
+  );
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const handlePickFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const selected = Array.from(files);
+    for (const file of selected) {
+      const validationError = getValidationMessage(file);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+    }
+
+    setError(null);
+    setNewFiles((current) => {
+      const deduped = [...current];
+      for (const file of selected) {
+        const alreadyExists = deduped.some(
+          (item) =>
+            item.name === file.name &&
+            item.size === file.size &&
+            item.type === file.type &&
+            item.lastModified === file.lastModified
+        );
+        if (!alreadyExists) {
+          deduped.push(file);
+        }
+      }
+      return deduped;
+    });
+  };
+
+  const removeExistingMedia = (url: string) => {
+    setExistingMedia((current) => current.filter((item) => item !== url));
+  };
+
+  const removeNewFileAtIndex = (index: number) => {
+    setNewFiles((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const title = formData.title.trim();
+    const description = formData.description.trim();
+
+    if (!title || !description) {
+      setError("Title and description are required.");
+      return;
+    }
+
     setLoading(true);
+    setError(null);
 
     try {
+      const payload = new FormData();
+      payload.append("id", proposal._id);
+      payload.append("title", title);
+      payload.append("description", description);
+      payload.append("type", formData.type);
+      payload.append(
+        "techStack",
+        formData.techStack
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+          .join(",")
+      );
+      payload.append("retainMedia", JSON.stringify(existingMedia));
+
+      for (const file of newFiles) {
+        payload.append("attachments", file);
+      }
+
       const res = await fetch("/api/proposals", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: proposal._id,
-          ...formData,
-          techStack: formData.techStack.split(",").map((s: string) => s.trim()).filter(Boolean),
-        }),
+        body: payload,
       });
+
+      const responsePayload = await res.json();
 
       if (res.ok) {
         onSuccess();
         onClose();
+      } else {
+        setError(responsePayload?.error || "Failed to update proposal.");
       }
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : "Failed to update proposal.");
     } finally {
       setLoading(false);
     }

@@ -13,7 +13,7 @@ const options: Array<{ value: ThemeMode; label: string; icon: ComponentType<{ cl
     { value: "system", label: "System", icon: Monitor },
 ];
 
-export default function ThemeModeToggle() {
+export default function ThemeModeToggle() {https://github.com/S-A-N-K-A-L-P/project_collab_sankalap/pull/8/conflict?name=src%252Fcomponents%252Fproposal%252FProposalComments.tsx&ancestor_oid=1cc698f2dcd860e3137bc8fbdcbae1290f0c722f&base_oid=e4e55d59278066183ae01c383cb1f14b6fd21ed7&head_oid=41f4f2697d1b3bdd91636f9c5472de5e65e3f5cd
     const { theme, setTheme } = useTheme();
 
     const activeTheme = THEME_MODES.includes(theme as ThemeMode) ? (theme as ThemeMode) : "system";
