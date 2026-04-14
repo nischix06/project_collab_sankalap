@@ -22,14 +22,20 @@ export function getOrCreateVoterId(): string {
         return 'anonymous';
     }
 
-    const existing = window.localStorage.getItem(STORAGE_KEY);
-    if (existing) {
-        document.cookie = `voter_id=${existing}; path=/; max-age=31536000; SameSite=Lax`;
-        return existing;
-    }
+    try {
+        const existing = window.localStorage.getItem(STORAGE_KEY);
+        if (existing) {
+            document.cookie = `voter_id=${existing}; path=/; max-age=31536000; SameSite=Lax`;
+            return existing;
+        }
 
-    const created = generateId();
-    window.localStorage.setItem(STORAGE_KEY, created);
-    document.cookie = `voter_id=${created}; path=/; max-age=31536000; SameSite=Lax`;
-    return created;
+        const created = generateId();
+        window.localStorage.setItem(STORAGE_KEY, created);
+        document.cookie = `voter_id=${created}; path=/; max-age=31536000; SameSite=Lax`;
+        return created;
+    } catch {
+        const fallback = generateId();
+        document.cookie = `voter_id=${fallback}; path=/; max-age=31536000; SameSite=Lax`;
+        return fallback;
+    }
 }

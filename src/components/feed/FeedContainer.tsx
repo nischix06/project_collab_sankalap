@@ -12,18 +12,26 @@ export default function FeedContainer() {
     async function fetchFeed() {
       try {
         const res = await fetch("/api/feed");
-        if (res.ok) {
-          const data = await res.json();
-          // Interleave proposals and activities by date
-          const combined = [
-            ...data.proposals.map((p: any) => ({ ...p, feedType: "proposal" })),
-            ...data.activity.map((a: any) => ({ ...a, feedType: "activity" }))
-          ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-          setItems(combined);
+        if (!res.ok) {
+          console.error("Failed to fetch feed:", res.status);
+          setItems([]);
+          return;
         }
+
+        const data = await res.json();
+        const proposals = Array.isArray(data?.proposals) ? data.proposals : [];
+        const activity = Array.isArray(data?.activity) ? data.activity : [];
+
+        // Interleave proposals and activities by date
+        const combined = [
+          ...proposals.map((p: any) => ({ ...p, feedType: "proposal" })),
+          ...activity.map((a: any) => ({ ...a, feedType: "activity" }))
+        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        setItems(combined);
       } catch (err) {
         console.error(err);
+        setItems([]);
       } finally {
         setLoading(false);
       }

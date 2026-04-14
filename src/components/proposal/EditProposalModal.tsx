@@ -222,7 +222,7 @@ export default function EditProposalModal({
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-accent hover:bg-[#4f46e5] text-white rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-lg shadow-[0_0_18px_var(--accent-glow)] active:scale-95 transition-all disabled:opacity-50"
+            className="w-full py-4 bg-accent hover:bg-[#4f46e5] text-white rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-[0_0_18px_var(--accent-glow)] active:scale-95 transition-all disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Send className="w-4 h-4" />}
             Re-Broadcast Signal

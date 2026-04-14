@@ -10,10 +10,16 @@ export default function BuildersOnline() {
   const fetchBuilders = async () => {
     try {
       const res = await fetch("/api/builders/online");
+      if (!res.ok) {
+        setBuilders([]);
+        return;
+      }
+
       const data = await res.json();
-      if (Array.isArray(data)) setBuilders(data);
+      setBuilders(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
+      setBuilders([]);
     } finally {
       setLoading(false);
     }
@@ -36,7 +42,7 @@ export default function BuildersOnline() {
 
       <div className="flex flex-wrap gap-2.5 px-1">
         <AnimatePresence>
-          {builders.map((builder, i) => (
+          {builders.map((builder) => (
             <motion.div
               key={builder._id}
               layout
@@ -45,7 +51,7 @@ export default function BuildersOnline() {
               exit={{ scale: 0, opacity: 0 }}
               className="relative group cursor-crosshair"
             >
-              <div className="w-10 h-10 rounded-2xl bg-surface border-2 border-border-subtle flex items-center justify-center font-black text-foreground text-xs group-hover:border-accent/50 group-hover:shadow-lg group-hover:shadow-[0_0_18px_var(--accent-glow)] transition-all overflow-hidden">
+              <div className="w-10 h-10 rounded-2xl bg-surface border-2 border-border-subtle flex items-center justify-center font-black text-foreground text-xs group-hover:border-accent/50 group-hover:shadow-[0_0_18px_var(--accent-glow)] transition-all overflow-hidden">
                 {builder.avatar ? (
                   <img src={builder.avatar} alt={builder.name} className="w-full h-full object-cover" />
                 ) : (
