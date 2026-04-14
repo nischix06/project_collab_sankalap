@@ -12,28 +12,25 @@ export function useMyProposals() {
 
   useEffect(() => {
     const load = async () => {
-      console.log("START");
-
       try {
         const data = await proposalService.getAll({
           status: 'all',
           sort: 'newest',
           limit: 100,
         });
-
-        console.log("DATA:", data);
-
+        setAllProposals(Array.isArray(data?.proposals) ? data.proposals : []);
+        setError(null);
       } catch (err) {
-        console.error("ERROR:", err);
-
+        setError(err instanceof Error ? err.message : 'Failed to load proposals');
+        setAllProposals([]);
       } finally {
-        console.log("FINALLY");
         setLoading(false);
       }
     };
 
     load();
   }, []);
+
   const myProposals = useMemo(
     () => allProposals.filter((proposal) => proposal.createdBy === myVoterId),
     [allProposals, myVoterId]

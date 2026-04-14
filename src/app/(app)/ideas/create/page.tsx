@@ -86,7 +86,16 @@ export default function CreateIdeaPage() {
                 body: formData,
             });
 
-            const payload = await response.json();
+            const contentType = response.headers.get('content-type') || '';
+            let payload: { error?: string; _id?: string } | null = null;
+
+            if (contentType.includes('application/json')) {
+                payload = await response.json();
+            } else {
+                const errorText = await response.text();
+                payload = errorText ? { error: errorText } : null;
+            }
+
             if (!response.ok) {
                 throw new Error(payload?.error || 'Failed to create proposal.');
             }

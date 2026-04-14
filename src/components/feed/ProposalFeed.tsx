@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import Link from "next/link";
 import ProposalCard from "./ProposalCard";
 
@@ -37,17 +36,6 @@ export default function ProposalFeed({ proposals, title }: ProposalFeedProps) {
         {proposals.map((proposal, i) => (
           <ProposalCard key={proposal._id} proposal={proposal} />
         ))}
-      </div>
-
-      {/* Simulation of Loading More */}
-      <div className="flex justify-center py-8">
-        <div className="h-1.5 w-32 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden relative">
-          <motion.div
-            animate={{ x: [-128, 128] }}
-            transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-            className="absolute inset-y-0 w-16 bg-blue-500 rounded-full"
-          />
-        </div>
       </div>
     </div>
   );
